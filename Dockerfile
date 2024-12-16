@@ -1,5 +1,5 @@
 # Base Go image
-FROM golang:1.20
+FROM golang:1.23
 
 # Install dependencies
 RUN apt-get update && apt-get install -y ca-certificates && update-ca-certificates

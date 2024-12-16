@@ -3,14 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"log"
 	"math"
 	"net/http"
+	"os"
+
 	// "sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -40,14 +42,16 @@ var (
 // Initialize PostgreSQL connection
 func initDB() {
 	var err error
-	host := os.Getenv("DB_HOST")
-    port := os.Getenv("DB_PORT")
-    user := os.Getenv("DB_USER")
-    pass := os.Getenv("DB_PASSWORD")
-    dbname := os.Getenv("DB_NAME")
+	// load .env file
 
-    fmt.Printf("Connecting to DB at %s:%s as %s...\n", host, port, user)
-    // Attempt connection and handle errors
+	host := os.Getenv("DB_HOST")
+	port := os.Getenv("DB_PORT")
+	user := os.Getenv("DB_USER")
+	pass := os.Getenv("DB_PASSWORD")
+	dbname := os.Getenv("DB_NAME")
+
+	fmt.Printf("Connecting to DB at %s:%s as %s...\n", host, port, user)
+	// Attempt connection and handle errors
 
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable", host, user, pass, dbname, port)
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
@@ -59,8 +63,13 @@ func initDB() {
 
 // Stream trades from Binance WebSocket API
 func streamTrades() {
-	url := "wss://stream.binance.com:9443/ws/btcusdt@trade"
-	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	apiKey := os.Getenv("BINANCE_API_KEY")
+	url := "wss://stream.binance.us:9443/ws/btcusdt@trade"
+
+	headers := http.Header{}
+	headers.Add("X-MBX-APIKEY", apiKey)
+
+	conn, _, err := websocket.DefaultDialer.Dial(url, headers)
 	if err != nil {
 		log.Fatal("WebSocket connection error:", err)
 	}
@@ -78,6 +87,7 @@ func streamTrades() {
 			log.Println("JSON unmarshal error:", err)
 			continue
 		}
+		fmt.Println("New Trade -->: ", trade)
 		tradeChan <- trade
 	}
 }
@@ -88,7 +98,7 @@ func processTrades() {
 		dollarImbalance float64
 		buyVolume       float64
 		sellVolume      float64
-		threshold       = 10000.0 // Example threshold for dollar imbalance
+		threshold       = 5000.0 // Example threshold for dollar imbalance
 	)
 
 	for trade := range tradeChan {
@@ -111,6 +121,7 @@ func processTrades() {
 				ThresholdReached: true,
 			}
 			db.Create(&bar)
+			fmt.Println("New Imbalance Bar -->: ", bar)
 			barChan <- bar
 
 			// Reset volumes
@@ -186,7 +197,11 @@ func startDashboard() {
 }
 
 func main() {
-
+	err := godotenv.Load(".env")
+	if err != nil {
+		fmt.Println("Unable to load .env file")
+		panic(err)
+	}
 	initDB()
 
 	go streamTrades()
