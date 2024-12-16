@@ -7,9 +7,11 @@ RUN apt-get update && apt-get install -y ca-certificates && update-ca-certificat
 # Set the working directory
 WORKDIR /app
 
+# sudo apt update && sudo apt install golang-go
+# go mod init spork
+
 # Copy Go modules and install dependencies
-# COPY go.mod go.sum ./
-RUN go mod init cautious-spork
+COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy application files
