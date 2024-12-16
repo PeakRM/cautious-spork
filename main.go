@@ -3,10 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"log"
 	"math"
 	"net/http"
-	"sync"
+	// "sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -33,13 +34,22 @@ var (
 	db        *gorm.DB
 	tradeChan = make(chan Trade, 1000)
 	barChan   = make(chan DollarImbalanceBar, 100)
-	mu        sync.Mutex
+	// mu        sync.Mutex
 )
 
 // Initialize PostgreSQL connection
 func initDB() {
 	var err error
-	dsn := "host=localhost user=postgres password=yourpassword dbname=trades port=5432 sslmode=disable"
+	host := os.Getenv("DB_HOST")
+    port := os.Getenv("DB_PORT")
+    user := os.Getenv("DB_USER")
+    pass := os.Getenv("DB_PASSWORD")
+    dbname := os.Getenv("DB_NAME")
+
+    fmt.Printf("Connecting to DB at %s:%s as %s...\n", host, port, user)
+    // Attempt connection and handle errors
+
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable", host, user, pass, dbname, port)
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
@@ -176,6 +186,7 @@ func startDashboard() {
 }
 
 func main() {
+
 	initDB()
 
 	go streamTrades()
